@@ -4,6 +4,7 @@
 dist/
 examples/resources/ciphertrust_cm_key/terraform.tfstate.backup
 terraform-provider-ciphertrust.exe
+/terraform-provider-ciphertrust
 definition-beta.json
 .claude/swagger/areas/
 .claude/swagger/definitions.json

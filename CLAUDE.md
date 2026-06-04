@@ -84,61 +84,52 @@ empty unless the ticket specifically asks you to fix it.
 
 **Approved implementation plan:**
 
-# Implementation Plan: TFIN-287 — Add "ml-dsa" to algorithm field in `ciphertrust_cm_key`
+# Implementation Plan: TFIN-287 — Add "ml-dsa" Algorithm to ciphertrust_cm_key
 
-## Objective
-Extend the `algorithm` attribute of the `ciphertrust_cm_key` resource (and corresponding data source, if present) to accept a new value `"ml-dsa"` (Module-Lattice Digital Signature Algorithm, post-quantum). This is a validator/enum widening change — no new fields, no new API calls.
+## Overview
+Add `"ml-dsa"` as a valid value for the `algorithm` attribute in the `ciphertrust_cm_key` resource. ML-DSA (FIPS 204) is a post-quantum signature algorithm with three parameter sets: 44, 65, 87 (security categories 2, 3, 5). This requires updating schema validators and adding a cross-field validator for size/algorithm compatibility.
 
-## Files to Investigate First
+## Pre-Implementation Discovery (must complete before coding)
+Run `grep -rn "ciphertrust_cm_key" internal/provider/` and `grep -rn '"algorithm"' internal/provider/cm/` to definitively identify:
+- The resource file (expected: `internal/provider/cm/resource_cm_key.go`)
+- The schema/model file (expected: `internal/provider/cm/schema_cm_key.go` or `model_cm_key.go`)
+- The full current `stringvalidator.OneOf(...)` list for `algorithm` — quote it verbatim in the PR description so reviewers can confirm `"ml-dsa"` is inserted without dropping any existing value (typically `aes`, `rsa`, `ec`, `hmac-sha1`, `hmac-sha256`, `hmac-sha384`, `hmac-sha512`, `seed`, `aria`, `tdes`, `opaque`).
+- The current `Read()` body — confirm it is empty per TFIN-174 before proceeding.
+- The current Required/Optional/Computed flags on `algorithm` (expected: Required, with `stringplanmodifier.RequiresReplace`) and `size` (expected: Optional + Computed, with `RequiresReplace`).
 
-The grep results provided are CCKM cloud-key files; they are useful as **pattern references** for schema validators (`stringvalidator.OneOf`) but the actual `ciphertrust_cm_key` resource lives under the core CM key package. Locate it at:
+Replace the placeholder paths below with the discovered paths in the actual PR.
 
-- `internal/provider/cm/key/resource_cm_key.go` (or similar — confirm via `grep -r "ciphertrust_cm_key" internal/provider`)
-- `internal/provider/cm/key/data_source_cm_key.go` (if it exists)
-- `internal/provider/cm/key/model_cm_key.go` or `schema_cm_key.go` (if schema is split out)
+## Pattern File
+Use **`internal/provider/cm/resource_cm_reg_token.go`** (a CM-subsystem resource using Plugin Framework) as the structural pattern for schema declaration, `stringvalidator.OneOf`, and `ConfigValidators()`. Do NOT use `internal/provider/cckm/aws/resource_aws_key.go` — it is a different subsystem with different conventions.
 
-**Pattern to follow:** `internal/provider/cckm/aws/resource_aws_key.go` — specifically how its `Schema()` method declares the `algorithm` attribute and uses `stringvalidator.OneOf(...)` to constrain values. Mirror that style.
+## Files to MODIFY
 
-## Changes
+### 1. `internal/provider/cm/resource_cm_key.go` (confirm path)
+- In `Schema()`, locate the `algorithm` attribute (`schema.StringAttribute`, **Required**, with `stringplanmodifier.RequiresReplace`). Append `"ml-dsa"` to its existing `stringvalidator.OneOf(...)` list. Do not change Required/Optional/Computed flags or plan modifiers.
+- Update `MarkdownDescription` to list `"ml-dsa"` and reference FIPS 204.
+- Locate the `size` attribute. Expected: `schema.Int64Attribute`, **Optional + Computed**, with `int64validator.OneOf(...)` containing existing sizes (128, 192, 256, 2048, 3072, 4096, etc.) and `RequiresReplace`. Append `44`, `65`, `87` to the `OneOf` list. Update its description to state that values 44/65/87 are only valid when `algorithm = "ml-dsa"`.
 
-### 1. MODIFY: `internal/provider/cm/key/resource_cm_key.go`
-- Locate the `Schema()` method, find the `algorithm` attribute definition.
-- Find the `stringvalidator.OneOf(...)` (or equivalent) call listing allowed algorithms (`aes`, `rsa`, `ec`, `hmac-*`, etc.).
-- Add the literal string `"ml-dsa"` to that list.
-- Update the attribute's `MarkdownDescription` / `Description` to document `ml-dsa` as an accepted value, with a brief note that it is a post-quantum signature algorithm.
-- Do **not** modify `Create()`, `Update()`, `Delete()`, or `Read()`. The CM API will accept the new string; the provider just needs to stop rejecting it client-side.
-- Per **TFIN-174**, leave `Read()` untouched.
+### 2. Add `ConfigValidators()` method on the resource (same file)
+- Add a new type `mldsaSizeValidator` (file: `internal/provider/cm/validator_mldsa_size.go`, new file) implementing `resource.ConfigValidator` with methods `Description`, `MarkdownDescription`, and `ValidateResource(ctx, req, resp)`.
+- `ValidateResource` reads `algorithm` and `size` from `req.Config`. If `algorithm == "ml-dsa"` and `size` is known and not in `{44, 65, 87}`, append a diagnostic: `"When algorithm is \"ml-dsa\", size must be one of: 44, 65, 87."`. If `algorithm != "ml-dsa"` and `size` is in `{44, 65, 87}`, append: `"Sizes 44/65/87 are only valid when algorithm is \"ml-dsa\"."`.
+- Wire it into the resource via `func (r *resourceCMKey) ConfigValidators(ctx context.Context) []resource.ConfigValidator { return []resource.ConfigValidator{&mldsaSizeValidator{}} }`.
 
-### 2. MODIFY: `internal/provider/cm/key/data_source_cm_key.go` (if it exists and validates `algorithm`)
-- Apply the same `OneOf` widening to the data source schema for consistency.
+### 3. Schema/model file (confirm path, e.g. `internal/provider/cm/schema_cm_key.go`)
+- Verify the struct fields `Algorithm` (`types.String`) and `Size` (`types.Int64`) and their JSON tags require no change. No struct modification expected; document the verification in the PR.
+- If a Create payload builder enforces an algorithm allow-list, append `"ml-dsa"`.
 
-### 3. MODIFY: documentation
-- `docs/resources/cm_key.md` — add `ml-dsa` to the list of valid `algorithm` values in the attribute reference table.
-- `docs/data-sources/cm_key.md` — same update if the data source documents the field.
-- `examples/resources/ciphertrust_cm_key/` — optionally add an example `.tf` snippet showing an `ml-dsa` key. Not required, but helpful.
+## Constraint Verification
+- **TFIN-174**: Confirm `Read()` in `resource_cm_key.go` is empty (returns immediately). Do NOT add Read logic.
+- Do NOT alter `RequiresReplace` semantics on `algorithm` or `size`.
 
-### 4. MODIFY: changelog / release notes
-- Add an entry under the next version in `CHANGELOG.md`: "Added support for `ml-dsa` algorithm in `ciphertrust_cm_key`."
+## Files to CREATE
 
-## Schema Changes
-
-No new attributes. Single enum widening:
-
-| Attribute | Type | Required/Optional/Computed | Change |
-|-----------|------|----------------------------|--------|
-| `algorithm` | `types.String` | Optional (unchanged) | Add `"ml-dsa"` to allowed values |
-
-## Constraints & Risks
-
-- **No new RequiresReplace** semantics — `algorithm` should already carry `RequiresReplace` (key algorithm is immutable post-creation). Verify the existing plan modifier is present; do not remove or alter it.
-- **TFIN-174:** Do not implement `Read()`. Adding `ml-dsa` does not require it.
-- **Backend compatibility:** Confirm with the CM API team that the target CM version actually accepts `ml-dsa`. If it does not, users on older CM will get a server-side 400 — acceptable, but worth noting in the doc string ("requires CipherTrust Manager X.Y or later").
-- **Parameter coupling:** `ml-dsa` likely requires specific `size` / parameter-set values (e.g., 44, 65, 87). Do not add validation for these in this ticket unless the AC demands it; let the CM API enforce it. Note this as a follow-up.
-
-## Testing
-
-- Add/extend a unit test for the schema validator confirming `ml-dsa` is accepted and an unknown algorithm is still rejected.
-- Add an acceptance test (skipped by default unless `TF_ACC=1`) creating a key with `algorithm = "ml-dsa"` if a test CM with PQC support is available; otherwise, document manual verification steps in the PR.
+### `internal/provider/cm/resource_cm_key_mldsa_test.go`
+Model after `internal/provider/cm/resource_cm_reg_token_test.go` (same subsystem, same framework). Test functions:
+- `TestAccResourceCMKey_MLDSA_basic` — create with `algorithm = "ml-dsa"`, `size = 65`; assert state.
+- `TestAccResourceCMKey_MLDSA_size44` and `TestAccResourceCMKey_MLDSA_size87` — parameter-set coverage.
+- `TestAccResourceCMKey_MLDSA_invalidSize` — `size = 100`, expect `ExpectError` matching the validator message.
+- `TestAccResourceCMKey_MLDSA_sizeOnNonMLDSA` — `algorithm = "aes"`, `size =
 
 **Files identified by the planner as relevant patterns to follow:**
 
@@ -156,6 +147,183 @@ No new attributes. Single enum widening:
 - `internal/provider/cckm/aws/resource_aws_xks_key.go`
 
 
+**Existing test files to extend (prefer improving these over adding new ones):**
+
+
+
+_(none identified — add the new `*_test.go` files named in the plan's Test Cases section)_
+
+
+> **Test cases are mandatory.** The plan ends with a `## Test Cases` section. Implement every
+> case: extend the named existing test where it says *(improve existing)*, add the named file
+> where it says *(new)*. Keep tests optimized — no redundant cases; reuse existing helpers and
+> `TestAcc*` patterns. Run `make build` + `make test` locally; acceptance tests run in the
+> GitLab pipeline, so do **not** run `make testacc` here.
+
+
+---
+
+## Previous attempt feedback (iteration 1)
+
+The last build/test run failed. Address these errors before declaring done:
+
+```
+GitLab acceptance-test pipeline #1749042 FAILED.
+Pipeline URL: https://gitlab.gemaltocloud.com/ncryptify/terraform-provider-ciphertrust-test/-/pipelines/1749042
+
+--- Failed job logs ---
+=== Failed job: acceptance_tests (stage: tf_tests) ===
+=== RUN   TestAccCMKey_MLDSA
+--- PASS: TestAccCMKey_MLDSA (1.34s)
+=== RUN   TestResourceCMKey
+--- PASS: TestResourceCMKey (2.35s)
+=== RUN   TestResourceCMPrometheus
+--- PASS: TestResourceCMPrometheus (2.52s)
+=== RUN   TestResourceCMRegToken
+--- PASS: TestResourceCMRegToken (2.14s)
+=== RUN   TestResourceCMUser
+--- PASS: TestResourceCMUser (2.44s)
+=== RUN   TestResourceCMUserUpdateWithoutName
+--- PASS: TestResourceCMUserUpdateWithoutName (2.33s)
+=== RUN   TestResourceCTEClientGuardPoint
+--- PASS: TestResourceCTEClientGuardPoint (2.64s)
+=== RUN   TestResourceCTEClient
+--- PASS: TestResourceCTEClient (2.26s)
+=== RUN   TestResourceCTEClientGroupGuardPoint
+--- PASS: TestResourceCTEClientGroupGuardPoint (2.63s)
+=== RUN   TestResourceCTEClientGroup
+--- PASS: TestResourceCTEClientGroup (4.50s)
+=== RUN   TestResourceCTECSIGroup
+--- PASS: TestResourceCTECSIGroup (2.14s)
+=== RUN   TestResourceCTELDTGroupComm
+--- PASS: TestResourceCTELDTGroupComm (2.16s)
+=== RUN   TestResourceCTEPolicyDataTXRule
+--- PASS: TestResourceCTEPolicyDataTXRule (2.41s)
+=== RUN   TestResourceCTEPolicyIDTKeyRule
+    resource_cte_policy_idtkeyrules_test.go:10: Error running post-test destroy, there may be dangling resources: exit status 1
+        
+        Error: Error Deleting CipherTrust Key
+        
+        Could not delete key, unexpected error: status: 403, body:
+        {"code":4,"codeDesc":"NCERRInsufficientPermissions","requestID":"d6f105ef-67fb-4089-8b58-f6cb900e7dfe"}
+        
+        
+        Error: Error Deleting CipherTrust Key
+        
+        Could not delete key, unexpected error: status: 403, body:
+        {"code":4,"codeDesc":"NCERRInsufficientPermissions","requestID":"c348fead-502c-4730-81aa-1f670a8db78e"}
+        
+--- FAIL: TestResourceCTEPolicyIDTKeyRule (3.04s)
+=== RUN   TestResourceCTEPolicyKeyRule
+--- PASS: TestResourceCTEPolicyKeyRule (1.66s)
+=== RUN   TestResourceCTEPolicyLDTKeyRule
+    resource_cte_policy_ldtkeyrules_test.go:10: Error running post-test destroy, there may be dangling resources: exit status 1
+        
+        Error: Error Deleting CipherTrust Key
+        
+        Could not delete key, unexpected error: status: 403, body:
+        {"code":4,"codeDesc":"NCERRInsufficientPermissions","requestID":"b7b5f13d-12d5-47c7-a29f-c91c18667b5f"}
+        
+--- FAIL: TestResourceCTEPolicyLDTKeyRule (3.26s)
+=== RUN   TestResourceCTEPolicySecurityRule
+--- PASS: TestResourceCTEPolicySecurityRule (1.67s)
+=== RUN   TestResourceCTEPolicy
+--- PASS: TestResourceCTEPolicy (2.22s)
+=== RUN   TestResourceCTEProcessSet
+--- PASS: TestResourceCTEProcessSet (2.12s)
+=== RUN   TestResourceCTEProfile
+--- PASS: TestResourceCTEProfile (2.26s)
+=== RUN   TestResourceCTEResourceSet
+--- PASS: TestResourceCTEResourceSet (2.16s)
+=== RUN   TestResourceCTESignatureSet
+--- PASS: TestResourceCTESignatureSet (2.24s)
+=== RUN   TestResourceCTEUserSet
+--- PASS: TestResourceCTEUserSet (2.14s)
+=== RUN   TestResourceGCPConnection
+--- PASS: TestResourceGCPConnection (2.25s)
+=== RUN   TestResourceHSMRootOfTrustSetupLuna
+    resource_hsm_rot_test.go:10: Skipped!! dummy data in resource parameters
+--- SKIP: TestResourceHSMRootOfTrustSetupLuna (0.00s)
+=== RUN   TestResourceHSMRootOfTrustSetupLunaPCI
+    resource_hsm_rot_test.go:51: Skipped!! dummy data in resource parameters
+--- SKIP: TestResourceHSMRootOfTrustSetupLunaPCI (0.00s)
+=== RUN   TestResourceHSMRootOfTrustSetupLunatct
+    resource_hsm_rot_test.go:84: Skipped!! dummy data in resource parameters
+--- SKIP: TestResourceHSMRootOfTrustSetupLunatct (0.00s)
+=== RUN   TestResourceCMNTP
+--- PASS: TestResourceCMNTP (2.44s)
+=== RUN   TestCckmOCIConnection
+--- PASS: TestCckmOCIConnection (3.42s)
+=== RUN   TestResourceCMPassordPolicy
+--- PASS: TestResourceCMPassordPolicy (2.33s)
+=== RUN   TestResourceCMPolicyAttachment
+--- PASS: TestResourceCMPolicyAttachment (1.61s)
+=== RUN   TestResourceCMPolicy
+--- PASS: TestResourceCMPolicy (1.39s)
+=== RUN   TestResourceCMPolicyEffectDefault
+--- PASS: TestResourceCMPolicyEffectDefault (1.33s)
+=== RUN   TestResourceCMProperty
+--- PASS: TestResourceCMProperty (2.11s)
+=== RUN   TestResourceScheduler
+--- PASS: TestResourceScheduler (2.64s)
+=== RUN   TestResourceCMSCPConnection
+--- PASS: TestResourceCMSCPConnection (2.13s)
+=== RUN   TestResourceSyslog
+--- PASS: TestResourceSyslog (11.14s)
+=== RUN   TestResourceTrialLicense
+--- PASS: TestResourceTrialLicense (22.50s)
+FAIL
+coverage: 55.7% of statements
+FAIL	github.com/ThalesGroup/terraform-provider-ciphertrust/internal/provider	2396.610s
+FAIL
+make: *** [GNUmakefile:24: testacc] Error 1
+Wrote acceptance_status.txt (tests failed).
+Tests failed. Fetching ks log from the CM instance...
+Attempting to fetch system logs via API from https://18.213.192.238...
+Url: https://18.213.192.238/api/v1/auth/tokens
+Getting auth token...
+Response: 200
+Successfully obtained auth token.
+Url: https://18.213.192.238/api/v1/logs/download?include_logs=system
+Downloading logs to 'cm_system_logs.tar.gz'...
+Response: 200
+Successfully downloaded logs to 'cm_system_logs.tar.gz'.
+Script completed successfully.
+Extracting keysecure.system.log from cm_system_logs.tar.gz...
+Checking archive file:
+-rw-r--r-- 1 root root 3742274 Jun  4 12:00 cm_system_logs.tar.gz
+Debug: searching for 'keysecure.system.log' inside cm_system_logs.tar.gz:
+cm_2.25.0-beta1+latest+52707_logs/keysecure.system.log
+Debug: FOUND_PATH='cm_2.25.0-beta1+latest+52707_logs/keysecure.system.log'
+Found log at: cm_2.25.0-beta1+latest+52707_logs/keysecure.system.log
+Successfully extracted system log to /builds/ncryptify/terraform-provider-ciphertrust-test/keysecure.system.log
+run_acceptance_tests.sh completed.
+
+section_end:1780574402:step_script
+[0Ksection_start:1780574402:upload_artifacts_on_failure
+[0K[0K[36;1mUploading artifacts for failed job[0;m[0;m
+[32;1mUploading artifacts...[0;m
+tf.log: found 1 matching artifact files and directories[0;m 
+keysecure.system.log: found 1 matching artifact files and directories[0;m 
+tests.log: found 1 matching artifact files and directories[0;m 
+report.xml: found 1 matching artifact files and directories[0;m 
+acceptance_status.txt: found 1 matching artifact files and directories[0;m 
+Uploading artifacts as "archive" to coordinator... 201 Created[0;m  id[0;m=8344886 responseStatus[0;m=201 Created token[0;m=64_jyaKfz
+[32;1mUploading artifacts...[0;m
+report.xml: found 1 matching artifact files and directories[0;m 
+Uploading artifacts as "junit" to coordinator... 201 Created[0;m  id[0;m=8344886 responseStatus[0;m=201 Created token[0;m=64_jyaKfz
+[32;1mUploading artifacts...[0;m
+.pipeline.env: found 1 matching artifact files and directories[0;m 
+Uploading artifacts as "dotenv" to coordinator... 201 Created[0;m  id[0;m=8344886 responseStatus[0;m=201 Created token[0;m=64_jyaKfz
+
+section_end:1780574407:upload_artifacts_on_failure
+[0Ksection_start:1780574407:cleanup_file_variables
+[0K[0K[36;1mCleaning up project directory and file based variables[0;m[0;m
+
+section_end:1780574407:cleanup_file_variables
+[0K[31;1mERROR: Job failed: command terminated with exit code 1
+[0;m
+```
 
 
 ---
