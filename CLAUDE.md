@@ -163,84 +163,84 @@ _(none identified — add the new `*_test.go` files named in the plan's Test Cas
 
 ---
 
-## Previous attempt feedback (iteration 2)
+## Previous attempt feedback (iteration 3)
 
 The last build/test run failed. Address these errors before declaring done:
 
 ```
-GitLab acceptance-test pipeline #1749283 FAILED.
-Pipeline URL: https://gitlab.gemaltocloud.com/ncryptify/terraform-provider-ciphertrust-test/-/pipelines/1749283
+GitLab acceptance-test pipeline #1749538 FAILED.
+Pipeline URL: https://gitlab.gemaltocloud.com/ncryptify/terraform-provider-ciphertrust-test/-/pipelines/1749538
 
 --- Failed job logs ---
 === Failed job: acceptance_tests (stage: tf_tests) ===
 === RUN   TestAccCMKey_MLDSA
---- PASS: TestAccCMKey_MLDSA (1.63s)
+--- PASS: TestAccCMKey_MLDSA (1.66s)
 === RUN   TestResourceCMKey
---- PASS: TestResourceCMKey (2.77s)
+--- PASS: TestResourceCMKey (2.30s)
 === RUN   TestResourceCMPrometheus
---- PASS: TestResourceCMPrometheus (2.88s)
+--- PASS: TestResourceCMPrometheus (2.40s)
 === RUN   TestResourceCMRegToken
---- PASS: TestResourceCMRegToken (2.39s)
+--- PASS: TestResourceCMRegToken (1.96s)
 === RUN   TestResourceCMUser
---- PASS: TestResourceCMUser (2.72s)
+--- PASS: TestResourceCMUser (2.30s)
 === RUN   TestResourceCMUserUpdateWithoutName
---- PASS: TestResourceCMUserUpdateWithoutName (2.68s)
+--- PASS: TestResourceCMUserUpdateWithoutName (2.27s)
 === RUN   TestResourceCTEClientGuardPoint
---- PASS: TestResourceCTEClientGuardPoint (3.02s)
+--- PASS: TestResourceCTEClientGuardPoint (2.53s)
 === RUN   TestResourceCTEClient
---- PASS: TestResourceCTEClient (2.55s)
+--- PASS: TestResourceCTEClient (2.09s)
 === RUN   TestResourceCTEClientGroupGuardPoint
---- PASS: TestResourceCTEClientGroupGuardPoint (3.03s)
+--- PASS: TestResourceCTEClientGroupGuardPoint (2.53s)
 === RUN   TestResourceCTEClientGroup
---- PASS: TestResourceCTEClientGroup (5.27s)
+--- PASS: TestResourceCTEClientGroup (4.34s)
 === RUN   TestResourceCTECSIGroup
---- PASS: TestResourceCTECSIGroup (2.50s)
+--- PASS: TestResourceCTECSIGroup (2.03s)
 === RUN   TestResourceCTELDTGroupComm
---- PASS: TestResourceCTELDTGroupComm (2.51s)
+--- PASS: TestResourceCTELDTGroupComm (2.02s)
 === RUN   TestResourceCTEPolicyDataTXRule
---- PASS: TestResourceCTEPolicyDataTXRule (2.99s)
+--- PASS: TestResourceCTEPolicyDataTXRule (2.33s)
 === RUN   TestResourceCTEPolicyIDTKeyRule
     resource_cte_policy_idtkeyrules_test.go:10: Error running post-test destroy, there may be dangling resources: exit status 1
         
         Error: Error Deleting CipherTrust Key
         
         Could not delete key, unexpected error: status: 403, body:
-        {"code":4,"codeDesc":"NCERRInsufficientPermissions","requestID":"c89b22f6-8b26-4565-96c7-e3dab3ef1e44"}
+        {"code":4,"codeDesc":"NCERRInsufficientPermissions","requestID":"d18e9d52-3617-4890-a1e7-238116a56397"}
         
         
         Error: Error Deleting CipherTrust Key
         
         Could not delete key, unexpected error: status: 403, body:
-        {"code":4,"codeDesc":"NCERRInsufficientPermissions","requestID":"600c67c9-10d1-487a-aa73-1ac69cd17f13"}
+        {"code":4,"codeDesc":"NCERRInsufficientPermissions","requestID":"73d54b6d-7b1d-450c-b93b-93fd96a8feca"}
         
---- FAIL: TestResourceCTEPolicyIDTKeyRule (3.60s)
+--- FAIL: TestResourceCTEPolicyIDTKeyRule (3.01s)
 === RUN   TestResourceCTEPolicyKeyRule
---- PASS: TestResourceCTEPolicyKeyRule (1.97s)
+--- PASS: TestResourceCTEPolicyKeyRule (1.62s)
 === RUN   TestResourceCTEPolicyLDTKeyRule
     resource_cte_policy_ldtkeyrules_test.go:10: Error running post-test destroy, there may be dangling resources: exit status 1
         
         Error: Error Deleting CipherTrust Key
         
         Could not delete key, unexpected error: status: 403, body:
-        {"code":4,"codeDesc":"NCERRInsufficientPermissions","requestID":"cf0f840d-d4cb-44c3-9a5f-ad57dbe9b337"}
+        {"code":4,"codeDesc":"NCERRInsufficientPermissions","requestID":"fa196fd9-c723-47ee-911d-b89a86d0f443"}
         
---- FAIL: TestResourceCTEPolicyLDTKeyRule (3.76s)
+--- FAIL: TestResourceCTEPolicyLDTKeyRule (3.07s)
 === RUN   TestResourceCTEPolicySecurityRule
---- PASS: TestResourceCTEPolicySecurityRule (1.97s)
+--- PASS: TestResourceCTEPolicySecurityRule (1.59s)
 === RUN   TestResourceCTEPolicy
---- PASS: TestResourceCTEPolicy (2.59s)
+--- PASS: TestResourceCTEPolicy (2.08s)
 === RUN   TestResourceCTEProcessSet
---- PASS: TestResourceCTEProcessSet (2.52s)
+--- PASS: TestResourceCTEProcessSet (2.04s)
 === RUN   TestResourceCTEProfile
---- PASS: TestResourceCTEProfile (2.61s)
+--- PASS: TestResourceCTEProfile (2.05s)
 === RUN   TestResourceCTEResourceSet
---- PASS: TestResourceCTEResourceSet (2.50s)
+--- PASS: TestResourceCTEResourceSet (2.04s)
 === RUN   TestResourceCTESignatureSet
---- PASS: TestResourceCTESignatureSet (2.60s)
+--- PASS: TestResourceCTESignatureSet (2.17s)
 === RUN   TestResourceCTEUserSet
---- PASS: TestResourceCTEUserSet (2.48s)
+--- PASS: TestResourceCTEUserSet (2.04s)
 === RUN   TestResourceGCPConnection
---- PASS: TestResourceGCPConnection (2.89s)
+--- PASS: TestResourceGCPConnection (2.32s)
 === RUN   TestResourceHSMRootOfTrustSetupLuna
     resource_hsm_rot_test.go:10: Skipped!! dummy data in resource parameters
 --- SKIP: TestResourceHSMRootOfTrustSetupLuna (0.00s)
@@ -251,47 +251,47 @@ Pipeline URL: https://gitlab.gemaltocloud.com/ncryptify/terraform-provider-ciphe
     resource_hsm_rot_test.go:84: Skipped!! dummy data in resource parameters
 --- SKIP: TestResourceHSMRootOfTrustSetupLunatct (0.00s)
 === RUN   TestResourceCMNTP
---- PASS: TestResourceCMNTP (2.81s)
+--- PASS: TestResourceCMNTP (2.35s)
 === RUN   TestCckmOCIConnection
---- PASS: TestCckmOCIConnection (3.91s)
+--- PASS: TestCckmOCIConnection (3.38s)
 === RUN   TestResourceCMPassordPolicy
---- PASS: TestResourceCMPassordPolicy (2.69s)
+--- PASS: TestResourceCMPassordPolicy (2.26s)
 === RUN   TestResourceCMPolicyAttachment
---- PASS: TestResourceCMPolicyAttachment (1.84s)
+--- PASS: TestResourceCMPolicyAttachment (1.59s)
 === RUN   TestResourceCMPolicy
---- PASS: TestResourceCMPolicy (1.52s)
+--- PASS: TestResourceCMPolicy (1.29s)
 === RUN   TestResourceCMPolicyEffectDefault
---- PASS: TestResourceCMPolicyEffectDefault (1.53s)
+--- PASS: TestResourceCMPolicyEffectDefault (1.30s)
 === RUN   TestResourceCMProperty
---- PASS: TestResourceCMProperty (2.43s)
+--- PASS: TestResourceCMProperty (2.11s)
 === RUN   TestResourceScheduler
---- PASS: TestResourceScheduler (3.03s)
+--- PASS: TestResourceScheduler (2.57s)
 === RUN   TestResourceCMSCPConnection
---- PASS: TestResourceCMSCPConnection (2.54s)
+--- PASS: TestResourceCMSCPConnection (2.26s)
 === RUN   TestResourceSyslog
---- PASS: TestResourceSyslog (11.54s)
+--- PASS: TestResourceSyslog (11.10s)
 === RUN   TestResourceTrialLicense
---- PASS: TestResourceTrialLicense (20.46s)
+--- PASS: TestResourceTrialLicense (19.70s)
 FAIL
 coverage: 55.7% of statements
-FAIL	github.com/ThalesGroup/terraform-provider-ciphertrust/internal/provider	2698.006s
+FAIL	github.com/ThalesGroup/terraform-provider-ciphertrust/internal/provider	2593.480s
 FAIL
 make: *** [GNUmakefile:24: testacc] Error 1
 Wrote acceptance_status.txt (tests failed).
 Tests failed. Fetching ks log from the CM instance...
-Attempting to fetch system logs via API from https://3.238.151.177...
-Url: https://3.238.151.177/api/v1/auth/tokens
+Attempting to fetch system logs via API from https://44.223.13.47...
+Url: https://44.223.13.47/api/v1/auth/tokens
 Getting auth token...
 Response: 200
 Successfully obtained auth token.
-Url: https://3.238.151.177/api/v1/logs/download?include_logs=system
+Url: https://44.223.13.47/api/v1/logs/download?include_logs=system
 Downloading logs to 'cm_system_logs.tar.gz'...
 Response: 200
 Successfully downloaded logs to 'cm_system_logs.tar.gz'.
 Script completed successfully.
 Extracting keysecure.system.log from cm_system_logs.tar.gz...
 Checking archive file:
--rw-r--r-- 1 root root 3945351 Jun  4 13:12 cm_system_logs.tar.gz
+-rw-r--r-- 1 root root 3981665 Jun  4 14:22 cm_system_logs.tar.gz
 Debug: searching for 'keysecure.system.log' inside cm_system_logs.tar.gz:
 cm_2.25.0-beta1+latest+52707_logs/keysecure.system.log
 Debug: FOUND_PATH='cm_2.25.0-beta1+latest+52707_logs/keysecure.system.log'
@@ -299,8 +299,8 @@ Found log at: cm_2.25.0-beta1+latest+52707_logs/keysecure.system.log
 Successfully extracted system log to /builds/ncryptify/terraform-provider-ciphertrust-test/keysecure.system.log
 run_acceptance_tests.sh completed.
 
-section_end:1780578734:step_script
-[0Ksection_start:1780578734:upload_artifacts_on_failure
+section_end:1780582923:step_script
+[0Ksection_start:1780582923:upload_artifacts_on_failure
 [0K[0K[36;1mUploading artifacts for failed job[0;m[0;m
 [32;1mUploading artifacts...[0;m
 tf.log: found 1 matching artifact files and directories[0;m 
@@ -308,19 +308,19 @@ keysecure.system.log: found 1 matching artifact files and directories[0;m
 tests.log: found 1 matching artifact files and directories[0;m 
 report.xml: found 1 matching artifact files and directories[0;m 
 acceptance_status.txt: found 1 matching artifact files and directories[0;m 
-Uploading artifacts as "archive" to coordinator... 201 Created[0;m  id[0;m=8345991 responseStatus[0;m=201 Created token[0;m=64_hCGBLx
+Uploading artifacts as "archive" to coordinator... 201 Created[0;m  id[0;m=8347318 responseStatus[0;m=201 Created token[0;m=64_kV9Bxn
 [32;1mUploading artifacts...[0;m
 report.xml: found 1 matching artifact files and directories[0;m 
-Uploading artifacts as "junit" to coordinator... 201 Created[0;m  id[0;m=8345991 responseStatus[0;m=201 Created token[0;m=64_hCGBLx
+Uploading artifacts as "junit" to coordinator... 201 Created[0;m  id[0;m=8347318 responseStatus[0;m=201 Created token[0;m=64_kV9Bxn
 [32;1mUploading artifacts...[0;m
 .pipeline.env: found 1 matching artifact files and directories[0;m 
-Uploading artifacts as "dotenv" to coordinator... 201 Created[0;m  id[0;m=8345991 responseStatus[0;m=201 Created token[0;m=64_hCGBLx
+Uploading artifacts as "dotenv" to coordinator... 201 Created[0;m  id[0;m=8347318 responseStatus[0;m=201 Created token[0;m=64_kV9Bxn
 
-section_end:1780578739:upload_artifacts_on_failure
-[0Ksection_start:1780578739:cleanup_file_variables
+section_end:1780582929:upload_artifacts_on_failure
+[0Ksection_start:1780582929:cleanup_file_variables
 [0K[0K[36;1mCleaning up project directory and file based variables[0;m[0;m
 
-section_end:1780578740:cleanup_file_variables
+section_end:1780582929:cleanup_file_variables
 [0K[31;1mERROR: Job failed: command terminated with exit code 1
 [0;m
 ```

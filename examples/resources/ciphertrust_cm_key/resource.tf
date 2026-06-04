@@ -90,7 +90,7 @@ output "key_name" {
     value = ciphertrust_cm_key.sample_key.name
 }
 
-# Example: Create a post-quantum ML-DSA signing key (requires CipherTrust Manager 2.16+)
+# Example: Create a post-quantum ML-DSA signing key (FIPS 204)
 resource "ciphertrust_cm_key" "mldsa_key" {
   name      = "terraform-mldsa"
   algorithm = "ml-dsa"
