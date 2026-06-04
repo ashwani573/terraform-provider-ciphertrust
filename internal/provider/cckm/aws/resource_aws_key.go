@@ -857,6 +857,7 @@ func (r *resourceAWSKey) ModifyPlan(ctx context.Context, req resource.ModifyPlan
 		return
 	}
 
+
 	var plan, state AWSKeyTFSDK
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
