@@ -4,17 +4,23 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
+	"github.com/tidwall/gjson"
 
 	common "github.com/ThalesGroup/terraform-provider-ciphertrust/internal/provider/common"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
+
+const notFoundError = "Error: 404"
 
 var (
 	_ resource.Resource              = &resourceCMGroup{}
@@ -57,6 +63,16 @@ func (r *resourceCMGroup) Schema(_ context.Context, _ resource.SchemaRequest, re
 			},
 			"id": schema.StringAttribute{
 				Computed: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"users": schema.ListAttribute{
+				Computed:    true,
+				ElementType: types.StringType,
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}
@@ -122,6 +138,7 @@ func (r *resourceCMGroup) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 	plan.ID = plan.Name
+	plan.Users = types.ListNull(types.StringType)
 
 	tflog.Debug(ctx, "[resource_cm_user.go -> Create Output]["+response+"]")
 
@@ -133,8 +150,60 @@ func (r *resourceCMGroup) Create(ctx context.Context, req resource.CreateRequest
 	}
 }
 
-// Read refreshes the Terraform state with the latest data.
+// Read refreshes the Terraform state with the latest data from CipherTrust Manager.
+// If the group is no longer found (HTTP 404), it is removed from Terraform state so
+// Terraform can plan its recreation on the next apply.
 func (r *resourceCMGroup) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	id := uuid.New().String()
+	tflog.Debug(ctx, common.MSG_METHOD_START+"[resource_cm_group.go -> Read]["+id+"]")
+	defer tflog.Debug(ctx, common.MSG_METHOD_END+"[resource_cm_group.go -> Read]["+id+"]")
+
+	var state CMGroupTFSDK
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	groupID := state.ID.ValueString()
+	response, err := r.client.GetById(ctx, id, groupID, common.URL_CM_GROUPS)
+	if err != nil {
+		if strings.Contains(err.Error(), notFoundError) {
+			tflog.Warn(ctx, "[resource_cm_group.go -> Read][group not found, removing from state][group id: "+groupID+"]")
+			resp.State.RemoveResource(ctx)
+			return
+		}
+		tflog.Error(ctx, "[resource_cm_group.go -> Read][error reading group][group id: "+groupID+"]")
+		resp.Diagnostics.AddError("Error reading CM group.", err.Error())
+		return
+	}
+
+	state.Name = types.StringValue(gjson.Get(response, "name").String())
+	state.ID = types.StringValue(gjson.Get(response, "id").String())
+
+	desc := gjson.Get(response, "description").String()
+	if desc == "" {
+		state.Description = types.StringNull()
+	} else {
+		state.Description = types.StringValue(desc)
+	}
+
+	state.AppMetadata = parseMetadataMap(gjson.Get(response, "app_metadata"))
+	state.ClientMetadata = parseMetadataMap(gjson.Get(response, "client_metadata"))
+	state.UserMetadata = parseMetadataMap(gjson.Get(response, "user_metadata"))
+
+	usersResult := gjson.Get(response, "users")
+	if usersResult.Exists() && usersResult.IsArray() {
+		userElems := make([]attr.Value, 0, len(usersResult.Array()))
+		usersResult.ForEach(func(_, v gjson.Result) bool {
+			userElems = append(userElems, types.StringValue(v.String()))
+			return true
+		})
+		state.Users = types.ListValueMust(types.StringType, userElems)
+	} else {
+		state.Users = types.ListNull(types.StringType)
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
 // Update updates the resource and sets the updated Terraform state on success.
@@ -195,6 +264,7 @@ func (r *resourceCMGroup) Update(ctx context.Context, req resource.UpdateRequest
 	}
 	plan.Name = types.StringValue(response)
 	plan.ID = plan.Name
+	plan.Users = types.ListNull(types.StringType)
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -241,4 +311,21 @@ func (d *resourceCMGroup) Configure(_ context.Context, req resource.ConfigureReq
 	}
 
 	d.client = client
+}
+
+// parseMetadataMap converts a gjson map result into a types.Map with string element values.
+// Returns types.MapNull when the field is absent, null, or empty.
+func parseMetadataMap(result gjson.Result) types.Map {
+	if !result.Exists() || !result.IsObject() {
+		return types.MapNull(types.StringType)
+	}
+	elems := make(map[string]attr.Value)
+	result.ForEach(func(k, v gjson.Result) bool {
+		elems[k.String()] = types.StringValue(v.String())
+		return true
+	})
+	if len(elems) == 0 {
+		return types.MapNull(types.StringType)
+	}
+	return types.MapValueMust(types.StringType, elems)
 }
