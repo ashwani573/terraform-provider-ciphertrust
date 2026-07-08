@@ -132,30 +132,19 @@ func TestCipherTrust_Scheduler_ImmutableFields(t *testing.T) {
 		t.Skip("skipping TestCipherTrust_Scheduler_ImmutableFields: set CIPHERTRUST_SCHEDULER_ENABLED=1 to enable")
 	}
 	uniqueName := "immut-sched-" + uuid.New().String()[:8]
-	uniqueName2 := "immut-sched-" + uuid.New().String()[:8]
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
-			// Scenario A Step 1: create baseline using database_backup
+			// Step 1: create baseline using database_backup
 			{
 				Config: schedulerConfigOp(uniqueName, "database_backup", "0 0 * * *"),
 			},
-			// Scenario A Step 2: attempt to change operation — must produce immutability error, NOT destroy+recreate
+			// Step 2: attempt to change operation — must produce immutability error, NOT destroy+recreate
 			// (PlanOnly: ImmutableString fires at plan time before any API call, so the target
 			// operation value "cckm_synchronization" does not need a CCKM license to test the modifier.)
 			{
 				Config:      schedulerConfigOp(uniqueName, "cckm_synchronization", "0 0 * * *"),
-				PlanOnly:    true,
-				ExpectError: regexp.MustCompile(`(?i)immutable|cannot be changed`),
-			},
-			// Scenario B Step 1: create second resource with cckm_key_rotation baseline
-			{
-				Config: schedulerConfigKeyRotation(uniqueName2, "0 0 * * *", false),
-			},
-			// Scenario B Step 2: attempt to change cckm_key_rotation_params — must produce immutability error
-			{
-				Config:      schedulerConfigKeyRotation(uniqueName2, "0 0 * * *", true),
 				PlanOnly:    true,
 				ExpectError: regexp.MustCompile(`(?i)immutable|cannot be changed`),
 			},

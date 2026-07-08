@@ -174,6 +174,9 @@ func (m immutableMapModifier) PlanModifyMap(_ context.Context, req planmodifier.
 	if req.StateValue.IsNull() {
 		return
 	}
+	if req.PlanValue.IsNull() {
+		return
+	}
 	if req.PlanValue.Equal(req.StateValue) {
 		return
 	}

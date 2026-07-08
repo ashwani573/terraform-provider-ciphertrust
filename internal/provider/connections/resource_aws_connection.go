@@ -629,6 +629,14 @@ func (r *resourceCCKMAWSConnection) Update(ctx context.Context, req resource.Upd
 		payload.CloudName = common.TrimString(plan.CloudName.String())
 	}
 
+	// Preserve write-only field: private_key is never returned by CM GET responses.
+	// When null in the plan, restore from prior state so it is not silently lost.
+	if plan.IAMRoleAnywhere != nil && state.IAMRoleAnywhere != nil {
+		if plan.IAMRoleAnywhere.PrivateKey.IsNull() {
+			plan.IAMRoleAnywhere.PrivateKey = state.IAMRoleAnywhere.PrivateKey
+		}
+	}
+
 	var varIAMRoleAnywhere IAMRoleAnywhereJSON
 	if plan.IAMRoleAnywhere != nil && !reflect.DeepEqual(plan.IAMRoleAnywhere, state.IAMRoleAnywhere) {
 		if plan.IAMRoleAnywhere.AnywhereRoleARN.ValueString() != "" && plan.IAMRoleAnywhere.AnywhereRoleARN.ValueString() != types.StringNull().ValueString() {
