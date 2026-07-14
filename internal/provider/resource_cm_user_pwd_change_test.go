@@ -27,6 +27,9 @@ func generateComplexPassword() string {
 // TEST_CM_BOOTSTRAP_NEW_PASSWORD are all set.
 func TestCipherTrust_CMUserPwdChange_ReadStability(t *testing.T) {
 	RequireCM(t)
+	if os.Getenv("TF_ACC_ENABLE_PASSWORD_CHANGE_TESTS") != "true" {
+		t.Skip("skipping: set TF_ACC_ENABLE_PASSWORD_CHANGE_TESTS=true to run tests that permanently change CM user passwords")
+	}
 
 	if os.Getenv("CM_TEST_PASSWORD_CHANGE") != "true" {
 		t.Skip("skipping TestCipherTrust_CMUserPwdChange_ReadStability: CM_TEST_PASSWORD_CHANGE not set to true")
@@ -77,6 +80,9 @@ resource "ciphertrust_cm_user_password_change" "test" {
 // Skipped when TEST_CM_BOOTSTRAP_PASSWORD or TEST_CM_BOOTSTRAP_NEW_PASSWORD are not set.
 func Test_CM_CipherTrust_CMUserPasswordChange_OptionalFieldAdded_ForcesReplacement(t *testing.T) {
 	RequireCM(t)
+	if os.Getenv("TF_ACC_ENABLE_PASSWORD_CHANGE_TESTS") != "true" {
+		t.Skip("skipping: set TF_ACC_ENABLE_PASSWORD_CHANGE_TESTS=true to run tests that permanently change CM user passwords")
+	}
 
 	currentPwd := os.Getenv("TEST_CM_BOOTSTRAP_PASSWORD")
 	if currentPwd == "" {
@@ -142,6 +148,9 @@ resource "ciphertrust_cm_user_password_change" "test" {
 // Required env vars: CM_TEST_USERNAME, CM_TEST_OLD_PASSWORD, CM_TEST_NEW_PASSWORD.
 func Test_CM_UserPasswordChange_Create(t *testing.T) {
 	RequireCM(t)
+	if os.Getenv("TF_ACC_ENABLE_PASSWORD_CHANGE_TESTS") != "true" {
+		t.Skip("skipping: set TF_ACC_ENABLE_PASSWORD_CHANGE_TESTS=true to run tests that permanently change CM user passwords")
+	}
 
 	username := os.Getenv("CM_TEST_USERNAME")
 	if username == "" {
@@ -223,6 +232,9 @@ variable "tfacc_pwdchg_alt_new_password" {
 // Required env vars: TF_ACC_CM_TEST_USERNAME, TF_ACC_CM_TEST_PASSWORD, TF_ACC_CM_TEST_NEW_PASSWORD.
 func TestAcc_CMUserPasswordChange_immutable(t *testing.T) {
 	RequireCM(t)
+	if os.Getenv("TF_ACC_ENABLE_PASSWORD_CHANGE_TESTS") != "true" {
+		t.Skip("skipping: set TF_ACC_ENABLE_PASSWORD_CHANGE_TESTS=true to run tests that permanently change CM user passwords")
+	}
 
 	username := os.Getenv("TF_ACC_CM_TEST_USERNAME")
 	password := os.Getenv("TF_ACC_CM_TEST_PASSWORD")
@@ -343,6 +355,9 @@ resource "ciphertrust_cm_user_password_change" "test" {
 // Required env vars: TF_ACC_CM_TEST_USERNAME, TF_ACC_CM_TEST_PASSWORD, TF_ACC_CM_TEST_NEW_PASSWORD.
 func TestAcc_CMUserPasswordChange_idempotency(t *testing.T) {
 	RequireCM(t)
+	if os.Getenv("TF_ACC_ENABLE_PASSWORD_CHANGE_TESTS") != "true" {
+		t.Skip("skipping: set TF_ACC_ENABLE_PASSWORD_CHANGE_TESTS=true to run tests that permanently change CM user passwords")
+	}
 
 	username := os.Getenv("TF_ACC_CM_TEST_USERNAME")
 	password := os.Getenv("TF_ACC_CM_TEST_PASSWORD")
