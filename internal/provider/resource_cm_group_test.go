@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"log"
 	"regexp"
 	"sort"
 	"strings"
@@ -496,4 +497,101 @@ func TestAccCMGroup_attributeDrift(t *testing.T) {
 			},
 		},
 	})
+}
+
+// TestCipherTrust_CMGroup_ClientMetadataNullClear verifies that removing client_metadata
+// from the Terraform config (setting it to null) clears the field on CM and converges
+// without a perpetual plan diff (TFIN-402).
+func TestCipherTrust_CMGroup_ClientMetadataNullClear(t *testing.T) {
+	RequireCM(t)
+
+	name := "tftest-group-" + uuid.New().String()[:8]
+
+	// capturedID is populated in Step 2's Check and consumed in Step 4's PreConfig.
+	var capturedID string
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Step 1: Create group with client_metadata set.
+			{
+				Config: cmGroupConfigWithClientMetadata(name, `{"key":"value"}`),
+				Check: checkStep(t, "client_metadata set",
+					resource.TestCheckResourceAttr("ciphertrust_groups.test", "client_metadata", `{"key":"value"}`),
+				),
+			},
+			// Step 2: Clear client_metadata (field omitted from config = Terraform null).
+			// After a successful clear, state must reflect null and the subsequent implicit
+			// plan must produce no further changes — this is the bug fix assertion.
+			{
+				Config: cmGroupConfigNoClientMetadata(name),
+				Check: checkStep(t, "client_metadata cleared",
+					resource.TestCheckNoResourceAttr("ciphertrust_groups.test", "client_metadata"),
+					func(s *terraform.State) error {
+						rs, ok := s.RootModule().Resources["ciphertrust_groups.test"]
+						if !ok {
+							return fmt.Errorf("resource ciphertrust_groups.test not found in state")
+						}
+						capturedID = rs.Primary.ID
+						return nil
+					},
+				),
+				ExpectNonEmptyPlan: false,
+			},
+			// Step 3: Explicit idempotency check — re-plan with no config changes.
+			{
+				Config:             cmGroupConfigNoClientMetadata(name),
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: false,
+			},
+			// Step 4: Out-of-band drift detection.
+			// PreConfig PATCHes CM directly to set client_metadata back to {"key":"drifted"},
+			// simulating an external change. The subsequent plan must detect the drift.
+			{
+				Config: cmGroupConfigNoClientMetadata(name),
+				PreConfig: func() {
+					if capturedID == "" {
+						log.Printf("[WARN] TestCipherTrust_CMGroup_ClientMetadataNullClear: capturedID is empty, skipping out-of-band drift injection")
+						return
+					}
+					client, ok := createCMClient()
+					if !ok {
+						log.Printf("[WARN] TestCipherTrust_CMGroup_ClientMetadataNullClear: createCMClient returned false, skipping out-of-band drift injection")
+						return
+					}
+					driftPayload := []byte(`{"client_metadata":{"key":"drifted"}}`)
+					_, _ = client.UpdateData(
+						context.Background(),
+						capturedID,
+						common.URL_GROUP,
+						driftPayload,
+						"name",
+					)
+				},
+				ExpectNonEmptyPlan: true,
+				PlanOnly:           true,
+			},
+		},
+	})
+}
+
+// cmGroupConfigWithClientMetadata creates a group with client_metadata set to the
+// provided raw JSON string.
+func cmGroupConfigWithClientMetadata(name, metadata string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "ciphertrust_groups" "test" {
+  name            = %q
+  client_metadata = %q
+}
+`, name, metadata)
+}
+
+// cmGroupConfigNoClientMetadata creates a group without client_metadata, which
+// Terraform treats as a true null — triggering the null-clear path in Update().
+func cmGroupConfigNoClientMetadata(name string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "ciphertrust_groups" "test" {
+  name = %q
+}
+`, name)
 }

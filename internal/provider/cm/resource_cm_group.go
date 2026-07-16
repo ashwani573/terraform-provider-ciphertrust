@@ -221,7 +221,7 @@ func (r *resourceCMGroup) Read(ctx context.Context, req resource.ReadRequest, re
 		state.AppMetadata = types.StringNull()
 	}
 
-	if v := gjson.Get(response, "client_metadata"); v.Exists() && v.Type != gjson.Null && v.Raw != "{}" {
+	if v := gjson.Get(response, "client_metadata"); v.Exists() && v.Type != gjson.Null {
 		state.ClientMetadata = types.StringValue(v.Raw)
 	} else {
 		state.ClientMetadata = types.StringNull()
@@ -251,7 +251,7 @@ func (r *resourceCMGroup) Read(ctx context.Context, req resource.ReadRequest, re
 func (r *resourceCMGroup) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	id := uuid.New().String()
 	var plan, state CMGroupTFSDK
-	var payload CMGroupJSON
+	payload := map[string]interface{}{}
 
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
@@ -265,30 +265,34 @@ func (r *resourceCMGroup) Update(ctx context.Context, req resource.UpdateRequest
 	}
 
 	if plan.Name.ValueString() != "" && plan.Name.ValueString() != types.StringNull().ValueString() {
-		payload.Name = plan.Name.ValueString()
+		payload["name"] = plan.Name.ValueString()
 	}
 	if plan.Description.ValueString() != "" && plan.Description.ValueString() != types.StringNull().ValueString() {
-		payload.Description = plan.Description.ValueString()
+		payload["description"] = plan.Description.ValueString()
 	}
 
 	if !plan.AppMetadata.IsNull() && !plan.AppMetadata.IsUnknown() && plan.AppMetadata.ValueString() != "" {
 		var meta map[string]interface{}
 		if json.Unmarshal([]byte(plan.AppMetadata.ValueString()), &meta) == nil {
-			payload.AppMetadata = meta
+			payload["app_metadata"] = meta
 		}
 	}
 
-	if !plan.ClientMetadata.IsNull() && !plan.ClientMetadata.IsUnknown() && plan.ClientMetadata.ValueString() != "" {
+	if plan.ClientMetadata.IsNull() {
+		if !state.ClientMetadata.IsNull() {
+			payload["client_metadata"] = nil
+		}
+	} else if !plan.ClientMetadata.IsUnknown() && plan.ClientMetadata.ValueString() != "" {
 		var meta map[string]interface{}
 		if json.Unmarshal([]byte(plan.ClientMetadata.ValueString()), &meta) == nil {
-			payload.ClientMetadata = meta
+			payload["client_metadata"] = meta
 		}
 	}
 
 	if !plan.UserMetadata.IsNull() && !plan.UserMetadata.IsUnknown() && plan.UserMetadata.ValueString() != "" {
 		var meta map[string]interface{}
 		if json.Unmarshal([]byte(plan.UserMetadata.ValueString()), &meta) == nil {
-			payload.UserMetadata = meta
+			payload["user_metadata"] = meta
 		}
 	}
 
@@ -302,9 +306,9 @@ func (r *resourceCMGroup) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	response, err := r.client.UpdateData(ctx, plan.Name.ValueString(), common.URL_GROUP, payloadJSON, "name")
+	response, err := r.client.UpdateData(ctx, state.Name.ValueString(), common.URL_GROUP, payloadJSON, "name")
 	if err != nil {
-		tflog.Debug(ctx, common.ERR_METHOD_END+err.Error()+" [resource_cm_group.go -> Update]["+plan.Name.ValueString()+"]")
+		tflog.Debug(ctx, common.ERR_METHOD_END+err.Error()+" [resource_cm_group.go -> Update]["+state.Name.ValueString()+"]")
 		resp.Diagnostics.AddError(
 			"Error Updating CipherTrust Group",
 			"Could not update group, unexpected error: "+err.Error(),
