@@ -479,6 +479,20 @@ func (r *resourceScheduler) Read(ctx context.Context, req resource.ReadRequest, 
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	// State-preserving hydration for start_date/end_date (TFIN-422).
+	// CM omits these fields when they are unset or have been cleared.
+	// When absent, preserve the prior state value already loaded by req.State.Get:
+	//   - state = ""   → user previously cleared via start_date = ""; keep "" to
+	//                    avoid "Provider produced inconsistent result after apply"
+	//   - state = null → field was never configured; keep null to avoid spurious drift
+	if r := gjson.Get(response, "start_date"); r.Exists() {
+		state.StartDate = types.StringValue(r.String())
+	}
+	if r := gjson.Get(response, "end_date"); r.Exists() {
+		state.EndDate = types.StringValue(r.String())
+	}
+
 	state.Name = types.StringValue(gjson.Get(response, "name").String())
 	state.Operation = types.StringValue(gjson.Get(response, "operation").String())
 	state.RunAt = types.StringValue(gjson.Get(response, "run_at").String())
@@ -607,6 +621,10 @@ func (r *resourceScheduler) Delete(ctx context.Context, req resource.DeleteReque
 	url := fmt.Sprintf("%s/%s/%s", r.client.CipherTrustURL, common.URL_SCHEDULER_JOB_CONFIGS, state.ID.ValueString())
 	output, err := r.client.DeleteByID(ctx, "DELETE", state.ID.ValueString(), url, nil)
 	if err != nil {
+		if strings.Contains(err.Error(), "status: 404") {
+			tflog.Debug(ctx, common.MSG_METHOD_END+"[resource_scheduler.go -> Delete][scheduler already deleted (404), treating as success]["+state.ID.ValueString()+"]")
+			return
+		}
 		tflog.Trace(ctx, common.MSG_METHOD_END+"[resource_scheduler.go -> Delete]["+state.ID.ValueString()+"]["+output+"]")
 		resp.Diagnostics.AddError(
 			"Error Deleting CipherTrust Scheduler Job configs",
@@ -829,12 +847,19 @@ func getParamsFromResponse(ctx context.Context, response string, plan *CreateJob
 	plan.RunOn = types.StringValue(gjson.Get(response, "run_on").String())
 	if r := gjson.Get(response, "start_date"); r.Exists() {
 		plan.StartDate = types.StringValue(r.String())
-	} else {
+	} else if plan.StartDate.IsUnknown() {
+		// Create() path: start_date is Optional+Computed, so when the user omits it
+		// the framework marks the planned value Unknown. CM won't return the field if
+		// it was never sent; resolve Unknown→null so the framework can write state.
+		// For Read() and Update(), plan.StartDate is already known ("" or null) so
+		// this branch does not fire — the inline state-preserving block in Read()
+		// and the config value in Update() are preserved unchanged.
 		plan.StartDate = types.StringNull()
 	}
 	if r := gjson.Get(response, "end_date"); r.Exists() {
 		plan.EndDate = types.StringValue(r.String())
-	} else {
+	} else if plan.EndDate.IsUnknown() {
+		// Same rationale as start_date above.
 		plan.EndDate = types.StringNull()
 	}
 

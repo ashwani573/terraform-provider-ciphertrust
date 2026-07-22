@@ -226,14 +226,17 @@ func (d *dataSourceScheduler) Read(ctx context.Context, req datasource.ReadReque
 				RunAt:       types.StringValue(jobs.RunAt),
 				RunOn:       types.StringValue(jobs.RunOn),
 				Disabled:    types.BoolValue(jobs.Disabled),
+				// StartDate/EndDate are *string in the JSON model; nil means "not set"
+				// (equivalent to a zero-value date). Emit "" for nil so that the data
+				// source never returns "0001-01-01T00:00:00Z" for unset dates (TFIN-424).
 				StartDate: func() types.String {
-					if jobs.StartDate != nil {
+					if jobs.StartDate != nil && *jobs.StartDate != "" {
 						return types.StringValue(*jobs.StartDate)
 					}
 					return types.StringValue("")
 				}(),
 				EndDate: func() types.String {
-					if jobs.EndDate != nil {
+					if jobs.EndDate != nil && *jobs.EndDate != "" {
 						return types.StringValue(*jobs.EndDate)
 					}
 					return types.StringValue("")
