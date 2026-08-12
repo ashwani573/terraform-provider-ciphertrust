@@ -611,7 +611,7 @@ func (r *resourceCCKMOCIConnection) getOciParamsFromResponse(ctx context.Context
 	// cty.StringVal(""), but now null).
 	if desc := gjson.Get(response, "description"); desc.Exists() && desc.String() != "" {
 		data.Description = types.StringValue(desc.String())
-	} else if data.Description.IsNull() || data.Description.ValueString() != "" {
+	} else if data.Description.IsNull() || data.Description.IsUnknown() || data.Description.ValueString() != "" {
 		data.Description = types.StringNull()
 	}
 	data.Fingerprint = types.StringValue(gjson.Get(response, "fingerprint").String())
