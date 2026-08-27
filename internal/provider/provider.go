@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 
 	aws "github.com/ThalesGroup/terraform-provider-ciphertrust/internal/provider/cckm/aws"
+	azure "github.com/ThalesGroup/terraform-provider-ciphertrust/internal/provider/cckm/azure"
 	oci "github.com/ThalesGroup/terraform-provider-ciphertrust/internal/provider/cckm/oci"
 	cm "github.com/ThalesGroup/terraform-provider-ciphertrust/internal/provider/cm"
 	common "github.com/ThalesGroup/terraform-provider-ciphertrust/internal/provider/common"
@@ -674,6 +675,7 @@ func (p *ciphertrustProvider) DataSources(_ context.Context) []func() datasource
 		oci.NewDataSourceOCIVersions,
 		oci.NewDataSourceOCICompartmentsList,
 		aws.NewDataSourceAWSKeyRotationList,
+		azure.NewDataSourceAzureVaultsList,
 	}
 }
 
@@ -743,5 +745,6 @@ func (p *ciphertrustProvider) Resources(ctx context.Context) []func() resource.R
 		oci.NewResourceCCKMOCIVersion,
 		oci.NewResourceCCKMOCIKey,
 		aws.NewResourceCCKMAWSAcl,
+		azure.NewResourceAzureVault,
 	}
 }
